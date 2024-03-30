@@ -14,15 +14,14 @@
 using namespace std;
 
 
+#define DEFAULT_TTL 64
+#define ICMP_PACKET_SIZE 64
+#define ICMP_PAYLOAD_SIZE 8
+
 enum icmp_types {
 	ECHO_REPLY = 0,
 	DEST_UNREACH = 3,
 	TTL_EXCEEDED = 11,
-	ECHO_REQUEST = 8
-};
-
-enum icmp_codes {
-
 };
 
 typedef array<uint8_t, 6> mac_addr_t;
@@ -206,6 +205,15 @@ class Router {
 			return checksum(data, sizeof(iphdr)) == original_sum;
 		}
 
+		bool crc(icmphdr *icmp_hdr) {
+			uint16_t original_sum = ntohs(icmp_hdr->checksum);
+			icmp_hdr->checksum = 0;
+
+			uint16_t *data = (uint16_t *) icmp_hdr;
+			
+			return checksum(data, sizeof(icmphdr)) == original_sum;
+		}
+
 	public:
 		void handle_arp_packet(char *buff, size_t len, int interface) {
 			arp_header *arp_hdr = (arp_header *) buff;
@@ -224,14 +232,16 @@ class Router {
 
 			if (ip_hdr->ttl <= 1) {
 				cout<<"TTL expired\nSending ICMP Time Exceeded\n";
-				send_icmp_packet(buff, len, interface, TTL_EXCEEDED, 0);
+				send_icmp_packet(buff, interface, TTL_EXCEEDED);
 				return;
 			}
+
+
 
 			ip_hdr->ttl--;
 			ip_addr_t router_ip = inet_addr(get_interface_ip(interface));
 			if (memcmp(&ip_hdr->daddr, &router_ip, 4) == 0) {
-				send_icmp_packet(buff, len, interface, ECHO_REPLY, 0);
+				send_icmp_packet(buff, interface, ECHO_REPLY);
 			} else {
 				cout<<"Packet is for another host\n";
 				forward_packet(buff, len, interface);
@@ -245,7 +255,7 @@ class Router {
 
 			if (!next_hop_entry.has_value()) {
 				cout<<"No route found\nSending ICMP Destination Unreachable\n";
-				send_icmp_packet(buff, len, interface, DEST_UNREACH, 0);
+				send_icmp_packet(buff, interface, DEST_UNREACH);
 				return;
 			}
 			
@@ -266,6 +276,7 @@ class Router {
 
 			if (it == arp_cache.end()) {
 				cout << "No entry in ARP cache\n";
+				send_icmp_packet(buff, interface, DEST_UNREACH);
 			} else {
 				mac_addr_t mac = it->second;
 				memcpy(eth_hdr->ether_dhost, mac.begin(), 6);
@@ -285,8 +296,75 @@ class Router {
 			}
 		}
 
-		void send_icmp_packet(char *buff, size_t len, int interface, uint8_t type, uint8_t code) {
+		void send_icmp_packet(char *buff, int interface, uint8_t type) {
 
+			if (type == ECHO_REPLY) {
+					send_icmp_echo_reply(buff, interface);
+					cout<<"Sent ICMP Echo Reply\n";
+			} else {
+				send_icmp_failure(buff, interface, type);
+				cout << "Sent ICMP Destination Unreachable or ttl exceeded\n";
+			}
+		}
+
+
+		void send_icmp_failure(char *buff, int interface, uint8_t type) {
+
+			ether_header *eth_hdr = (ether_header *) buff;
+			iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
+			icmphdr *icmp_hdr = (icmphdr *)(buff + sizeof(ether_header) + sizeof(iphdr));
+
+			// copy the icmp payload as the first 64 bits of the ip packet
+			char icmp_payload[ICMP_PAYLOAD_SIZE];
+			memcpy(icmp_payload, ip_hdr, ICMP_PAYLOAD_SIZE);
+			
+			// update the ethernet header
+			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
+
+			// update the ip header
+			swap(ip_hdr->daddr, ip_hdr->saddr);
+			ip_hdr->ttl = DEFAULT_TTL;
+			ip_hdr->protocol = IP_ICMP;
+			ip_hdr->check = 0;
+			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
+			
+			// update the icmp header
+			icmp_hdr->type = type;
+			icmp_hdr->code = 0;
+			memcpy(buff + sizeof(ether_header) + sizeof(iphdr) + sizeof(icmphdr), icmp_payload, ICMP_PAYLOAD_SIZE);
+			icmp_hdr->checksum = 0;
+			icmp_hdr->checksum = htons(checksum((uint16_t *) icmp_hdr, sizeof(icmphdr)) + ICMP_PAYLOAD_SIZE);
+			
+			size_t len = sizeof(ether_header) + 4 * ip_hdr->ihl + ICMP_PAYLOAD_SIZE;
+			cout << "Sending ICMP packet failure \n";
+			send_packet(interface, buff, len);
+
+			ether_header *eth_hdr = (ether_header *) buff;
+			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
+		}
+
+		void send_icmp_echo_reply(char *buff, int interface) {
+			ether_header *eth_hdr = (ether_header *) buff;
+			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
+
+			iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
+			swap(ip_hdr->saddr, ip_hdr->daddr);
+			ip_hdr->ttl = DEFAULT_TTL;
+			ip_hdr->check = 0;
+			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
+
+			icmphdr *icmp_hdr = (icmphdr *)(buff + sizeof(ether_header) + sizeof(iphdr));
+			if (!crc(icmp_hdr)) {
+				cout<<"Invalid checksum\nPacket dropped\nICMP drop";	
+				return;
+			}
+
+			icmp_hdr->type = ECHO_REPLY;
+			icmp_hdr->code = 0;
+			icmp_hdr->checksum = 0;
+			icmp_hdr->checksum = htons(checksum((uint16_t *) icmp_hdr, ICMP_PACKET_SIZE));
+
+			send_packet(interface, buff, ICMP_PACKET_SIZE);
 		}
 
 		// void print_arp_cache() {
