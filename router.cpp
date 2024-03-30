@@ -230,7 +230,7 @@ class Router {
 
 			ip_hdr->ttl--;
 			ip_addr_t router_ip = inet_addr(get_interface_ip(interface));
-			if (memcpy(&ip_hdr->daddr, &router_ip, 4) == 0) {
+			if (memcmp(&ip_hdr->daddr, &router_ip, 4) == 0) {
 				send_icmp_packet(buff, len, interface, ECHO_REPLY, 0);
 			} else {
 				cout<<"Packet is for another host\n";
@@ -254,9 +254,7 @@ class Router {
 
 			// update the ip header
 			ip_hdr->check = 0;
-			ip_hdr->daddr = next_hop_ip;
-			ip_hdr->saddr = inet_addr(get_interface_ip(next_hop_interface));
-			ip_hdr->check = checksum((uint16_t *) ip_hdr, sizeof(iphdr));
+			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
 
 
 			// update the ethernet header
@@ -270,9 +268,20 @@ class Router {
 				cout << "No entry in ARP cache\n";
 			} else {
 				mac_addr_t mac = it->second;
-				memcpy(eth_hdr->ether_dhost, mac.data(), 6);
+				memcpy(eth_hdr->ether_dhost, mac.begin(), 6);
 				cout<<"Forwarding packet to "<<ntohl(next_hop_ip)<<"on interface:"<<next_hop_interface<<endl;
-				send_to_link(next_hop_interface, buff, len);
+				send_packet(next_hop_interface, buff, len);
+			}
+		}
+
+
+		void send_packet(int interface, char *buff, size_t len) {
+			int sent = 0;
+
+			while (sent < len) {
+				int ret = send_to_link(interface, buff + sent, len - sent);
+				DIE(ret < 0, "send_to_link");
+				sent += ret;
 			}
 		}
 
@@ -280,19 +289,19 @@ class Router {
 
 		}
 
-		void print_arp_cache() {
-			cout<<"ARP Cache\n";
-			for (auto it = arp_cache.begin(); it != arp_cache.end(); ++it) {
-				cout<<it->first<<" -> ";
-				for (int i = 0; i < 6; ++i) {
-					cout<<it->second[i];
-					if (i < 5) {
-						cout<<":";
-					}
-				} 
-				cout<<endl;
-			}
-		}
+		// void print_arp_cache() {
+		// 	cout<<"ARP Cache\n";
+		// 	for (auto it = arp_cache.begin(); it != arp_cache.end(); ++it) {
+		// 		cout<<it->first<<" -> ";
+		// 		for (int i = 0; i < 6; ++i) {
+		// 			cout<<it->second[i];
+		// 			if (i < 5) {
+		// 				cout<<":";
+		// 			}
+		// 		} 
+		// 		cout<<endl;
+		// 	}
+		// }
 };
 
 
