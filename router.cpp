@@ -54,6 +54,17 @@ class Router {
 			}
 		}
 
+		void run() {
+			while (1) {
+				Packet packet;
+				packet.interface = recv_from_any_link(packet.buff, &packet.len);
+				DIE (packet.interface < 0, "recv_from_any_link");
+
+				cout << "handle_packet\n";
+				handle_packet(packet);
+			}
+		}
+
 	private:
 	 	void build_routes(char *file_name) {
 			routing_table = new BinaryTrie();
@@ -92,10 +103,23 @@ class Router {
 			return checksum(data, sizeof(icmphdr)) == original_sum;
 		}
 
-	public:
-		void handle_arp_packet(char *buff, size_t len, int interface) {
-			arp_header *arp_hdr = (arp_header *) (buff + sizeof(ether_header));
+	private:
+		void handle_packet(Packet packet) {
+			ether_header *eth_hdr = (ether_header *) packet.buff;
+			if (ntohs(eth_hdr->ether_type) == ETH_IPV4) {
+				handle_ip_packet(packet);
 
+			} else if (ntohs(eth_hdr->ether_type) == ETH_ARP) {
+				handle_arp_packet(packet);
+
+			} else {
+				cout<<"Unknown packet type\n" << endl << "Dropping packet\n";
+			}
+		}
+
+
+		void handle_arp_packet(Packet packet) {
+			// arp_header *arp_hdr = (arp_header *)(packet.buff + sizeof(ether_header));
 			// uint16_t op = ntohs(arp_hdr->op);
 			// if (op == ARP_REPLY) {
 			// 	cout << "Received ARP reply\n";
@@ -110,76 +134,73 @@ class Router {
 			// }
 		}
 
-		void handle_ip_packet(char *buff, size_t len, int interface) {
+		void handle_ip_packet(Packet packet) {
 			cout<<"Received IP packet\n";
-			iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
+			iphdr *ip_hdr = (iphdr *)(packet.buff + sizeof(ether_header));
+			ip_addr_t router_ip = inet_addr(get_interface_ip(packet.interface));
+
+			if (memcmp(&ip_hdr->daddr, &router_ip, 4) == 0) {
+				cout<<"Packet is for this router\n Sending ICMP Echo Reply\n";
+				send_icmp_echo_reply(packet);
+			} else {
+				cout<<"Packet is for another host\n";
+				forward_ip_packet(packet);
+			}
+		}
+
+		// void send_waiting_packets(ip_addr_t ip, int interface, mac_addr_t mac) {
+		// 	for (auto it = waiting_packets.begin(); it != waiting_packets.end(); ) {
+		// 		Packet packet = *it;
+		// 		if (packet.dest_ip == ip) {
+		// 			packet.add_dest_mac(mac);
+		// 			send_packet(packet.interface, packet.buff, packet.len);
+		// 			it = waiting_packets.erase(it);
+		// 		} else {
+		// 			++it;
+		// 		}
+		// 	}
+		// }
+
+		void forward_ip_packet(Packet packet) {
+			iphdr *ip_hdr = (iphdr *)(packet.buff + sizeof(ether_header));
 
 			if (!crc(ip_hdr)) {
 				cout<<"Invalid checksum\nPacket dropped\n";	
 				return;
 			}
 
+			optional<route_table_entry> route = next_hop(ip_hdr->daddr);
+
+			if (!route.has_value()) {
+				cout<<"No route found\nSending ICMP Destination Unreachable\n";
+				prepare_icmp_header(packet, DEST_UNREACH);
+			}
+
 			if (ip_hdr->ttl <= 1) {
 				cout<<"TTL expired\nSending ICMP Time Exceeded\n";
-				send_icmp_packet(buff, interface, TTL_EXCEEDED);
-				return;
+				prepare_icmp_header(packet, TTL_EXCEEDED);
 			}
 
-
-
-			ip_hdr->ttl--;
-			ip_addr_t router_ip = inet_addr(get_interface_ip(interface));
-			if (memcmp(&ip_hdr->daddr, &router_ip, 4) == 0) {
-				send_icmp_packet(buff, interface, ECHO_REPLY);
-			} else {
-				cout<<"Packet is for another host\n";
-				forward_packet(buff, len, interface);
-			}
-		}
-
-	private:
-		void send_waiting_packets(ip_addr_t ip, int interface, mac_addr_t mac) {
-			for (auto it = waiting_packets.begin(); it != waiting_packets.end(); ) {
-				Packet packet = *it;
-				if (packet.dest_ip == ip) {
-					packet.add_dest_mac(mac);
-					send_packet(packet.interface, packet.buff, packet.len);
-					it = waiting_packets.erase(it);
-				} else {
-					++it;
-				}
-			}
-		}
-
-
-		void forward_packet(char *buff, size_t len, int interface) {
-			ether_header *eth_hdr = (ether_header *) buff;
-			iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
-			optional<route_table_entry> next_hop_entry = next_hop(ip_hdr->daddr);
-
-			if (!next_hop_entry.has_value()) {
-				cout<<"No route found\nSending ICMP Destination Unreachable\n";
-				send_icmp_packet(buff, interface, DEST_UNREACH);
-				return;
-			}
-			
-			ip_addr_t next_hop_ip = next_hop_entry->next_hop;
-			int next_hop_interface = next_hop_entry->interface;
+			ip_addr_t next_hop_ip = route->next_hop;
+			int next_hop_interface = route->interface;
+			packet.interface = next_hop_interface;
 
 			// update the ip header
+			ip_hdr->ttl--;
 			ip_hdr->check = 0;
 			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
 
-
 			// update the ethernet header
+			ether_header *eth_hdr = (ether_header *) packet.buff;
 			eth_hdr->ether_type = htons(ETH_IPV4);
 			get_interface_mac(next_hop_interface, eth_hdr->ether_shost);
 
-			// now we need to update the destination mac address
+			// now we need to find the destination mac address associated with the next_hop_ip
 			auto it = arp_cache.find(next_hop_ip);
 
 			if (it == arp_cache.end()) {
-				cout << "No entry in ARP cache\n";
+				cout << "No entry in ARP cache - Fatal error - Packet dropped\n";
+				// TODO
 				// Packet packet(buff, len, interface, next_hop_ip);
 				// waiting_packets.push_back(packet);
 				// send_arp_request(next_hop_ip, next_hop_interface);
@@ -187,9 +208,14 @@ class Router {
 			} else {
 				mac_addr_t mac = it->second;
 				memcpy(eth_hdr->ether_dhost, mac.begin(), 6);
-				cout<<"Forwarding packet to "<<ntohl(next_hop_ip)<<"on interface:"<<next_hop_interface<<endl;
-				send_packet(next_hop_interface, buff, len);
+				cout<<"Forwarding packet to "<<ntohl(next_hop_ip)<<" on interface:"<<next_hop_interface<<endl;
+				send_packet(packet);
 			}
+		}
+
+
+		void prepare_icmp_header(Packet& packet, uint8_t type) {
+			cout<<"Preparing ICMP header\n";
 		}
 
 		// void send_arp_reply(arp_header *request, int interface) {
@@ -252,73 +278,61 @@ class Router {
 		// }
 
 
-		void send_packet(int interface, char *buff, size_t len) {
+		void send_packet(Packet packet) {
 			int sent = 0;
 
-			while (sent < len) {
-				int ret = send_to_link(interface, buff + sent, len - sent);
+			while (sent < packet.len) {
+				int ret = send_to_link(packet.interface, packet.buff + sent, packet.len - sent);
 				DIE(ret < 0, "send_to_link");
 				sent += ret;
 			}
 		}
 
-		void send_icmp_packet(char *buff, int interface, uint8_t type) {
+		// void send_icmp_failure(char *buff, int interface, uint8_t type) {
 
-			if (type == ECHO_REPLY) {
-					send_icmp_echo_reply(buff, interface);
-					cout<<"Sent ICMP Echo Reply\n";
-			} else {
-				send_icmp_failure(buff, interface, type);
-				cout << "Sent ICMP Destination Unreachable or ttl exceeded\n";
-			}
-		}
+		// 	ether_header *eth_hdr = (ether_header *) buff;
+		// 	iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
+		// 	icmphdr *icmp_hdr = (icmphdr *)(buff + sizeof(ether_header) + sizeof(iphdr));
 
-
-		void send_icmp_failure(char *buff, int interface, uint8_t type) {
-
-			ether_header *eth_hdr = (ether_header *) buff;
-			iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
-			icmphdr *icmp_hdr = (icmphdr *)(buff + sizeof(ether_header) + sizeof(iphdr));
-
-			// copy the icmp payload as the first 64 bits of the ip packet
-			char icmp_payload[ICMP_PAYLOAD_SIZE];
-			memcpy(icmp_payload, ip_hdr, ICMP_PAYLOAD_SIZE);
+		// 	// copy the icmp payload as the first 64 bits of the ip packet
+		// 	char icmp_payload[ICMP_PAYLOAD_SIZE];
+		// 	memcpy(icmp_payload, ip_hdr, ICMP_PAYLOAD_SIZE);
 			
-			// update the ethernet header
+		// 	// update the ethernet header
+		// 	swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
+
+		// 	// update the ip header
+		// 	swap(ip_hdr->daddr, ip_hdr->saddr);
+		// 	ip_hdr->ttl = DEFAULT_TTL;
+		// 	ip_hdr->protocol = IP_ICMP;
+		// 	ip_hdr->check = 0;
+		// 	ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
+			
+		// 	// update the icmp header
+		// 	icmp_hdr->type = type;
+		// 	icmp_hdr->code = 0;
+		// 	memcpy(buff + sizeof(ether_header) + sizeof(iphdr) + sizeof(icmphdr), icmp_payload, ICMP_PAYLOAD_SIZE);
+		// 	icmp_hdr->checksum = 0;
+		// 	icmp_hdr->checksum = htons(checksum((uint16_t *) icmp_hdr, sizeof(icmphdr)) + ICMP_PAYLOAD_SIZE);
+			
+		// 	size_t len = sizeof(ether_header) + 4 * ip_hdr->ihl + ICMP_PAYLOAD_SIZE;
+		// 	cout << "Sending ICMP packet failure \n";
+		// 	send_packet(interface, buff, len);
+
+		// 	swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
+		// }
+
+		void send_icmp_echo_reply(Packet packet) {
+			ether_header *eth_hdr = (ether_header *) packet.buff;
 			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
 
-			// update the ip header
-			swap(ip_hdr->daddr, ip_hdr->saddr);
-			ip_hdr->ttl = DEFAULT_TTL;
-			ip_hdr->protocol = IP_ICMP;
-			ip_hdr->check = 0;
-			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
-			
-			// update the icmp header
-			icmp_hdr->type = type;
-			icmp_hdr->code = 0;
-			memcpy(buff + sizeof(ether_header) + sizeof(iphdr) + sizeof(icmphdr), icmp_payload, ICMP_PAYLOAD_SIZE);
-			icmp_hdr->checksum = 0;
-			icmp_hdr->checksum = htons(checksum((uint16_t *) icmp_hdr, sizeof(icmphdr)) + ICMP_PAYLOAD_SIZE);
-			
-			size_t len = sizeof(ether_header) + 4 * ip_hdr->ihl + ICMP_PAYLOAD_SIZE;
-			cout << "Sending ICMP packet failure \n";
-			send_packet(interface, buff, len);
-
-			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
-		}
-
-		void send_icmp_echo_reply(char *buff, int interface) {
-			ether_header *eth_hdr = (ether_header *) buff;
-			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
-
-			iphdr *ip_hdr = (iphdr *)(buff + sizeof(ether_header));
+			iphdr *ip_hdr = (iphdr *)(packet.buff + sizeof(ether_header));
 			swap(ip_hdr->saddr, ip_hdr->daddr);
 			ip_hdr->ttl = DEFAULT_TTL;
 			ip_hdr->check = 0;
 			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
 
-			icmphdr *icmp_hdr = (icmphdr *)(buff + sizeof(ether_header) + sizeof(iphdr));
+			icmphdr *icmp_hdr = (icmphdr *)(packet.buff + sizeof(ether_header) + sizeof(iphdr));
 			if (!crc(icmp_hdr)) {
 				cout<<"Invalid checksum\nPacket dropped\nICMP drop";	
 				return;
@@ -329,7 +343,9 @@ class Router {
 			icmp_hdr->checksum = 0;
 			icmp_hdr->checksum = htons(checksum((uint16_t *) icmp_hdr, ICMP_PACKET_SIZE));
 
-			send_packet(interface, buff, ICMP_PACKET_SIZE);
+			packet.len = ICMP_PACKET_SIZE;
+
+			send_packet(packet);
 		}
 
 		// void print_arp_cache() {
@@ -353,33 +369,10 @@ int main(int argc, char *argv[])
 	Router router(argv[1]);
 	cout << "Router started\n";
 
-	char buf[MAX_PACKET_LEN];
-	size_t len;
-
 	// Do not modify this line
 	init(argc - 2, argv + 2);
 
-
-	while (1) {
-
-		int interface;
-		interface = recv_from_any_link(buf, &len);
-		DIE(interface < 0, "recv_from_any_links");
-
-		ether_header *eth_hdr = (ether_header *) buf;
-		/* Note that packets received are in network order,
-		any header field which has more than 1 byte will need to be conerted to
-		host order. For example, ntohs(eth_hdr->ether_type). The oposite is needed when
-		sending a packet on the link, */
-		cout<<"Received packet on interface " << interface << endl;
-		if (ntohs(eth_hdr->ether_type) == ETH_IPV4) {
-			router.handle_ip_packet(buf, len, interface);
-		} else if (ntohs(eth_hdr->ether_type) == ETH_ARP) {
-			router.handle_arp_packet(buf, len, interface);
-		} else {
-			cout<<"Unknown packet type\n" << endl << "Dropping packet\n";
-		}
-	}
+	router.run();
 }
 
 

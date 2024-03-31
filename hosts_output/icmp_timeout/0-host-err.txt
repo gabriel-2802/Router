@@ -32,12 +32,10 @@
      id        = 1
      flags     = 
      frag      = 0
-     ttl       = 64
-     proto     = icmp
-     chksum    = 0xf993
+     ttl       = 0
+     proto     = hopopt
+     chksum    = 0x3995
      src       = 192.168.0.2
      dst       = 192.168.0.2
      \options   \
-###[ Padding ]### 
-        load      = '\x0b\x00\xf5\x07\x00\x00\x00\x00'
 

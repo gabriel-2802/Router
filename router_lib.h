@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <array>
+#include <cstring> 
 using namespace std;
 
 enum icmp_types {
@@ -27,10 +28,18 @@ typedef uint32_t ip_addr_t;
 
 class Packet{
 	public:
-		int len;
+		size_t len;
 		char buff[MAX_PACKET_LEN];
 		int interface;
 		ip_addr_t dest_ip;
+
+
+        Packet() {
+            len = 0;
+            interface = -1;
+            memset(buff, 0, MAX_PACKET_LEN);
+            dest_ip = 0;
+        }
 
         Packet(char *buff, int len, int interface) {
             this->len = len;

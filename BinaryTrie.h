@@ -1,8 +1,11 @@
 #ifndef BINARYTRIE_H
 #define BINARYTRIE_H
+#pragma once
 
 #include "Node.h"
 #include "include/lib.h"
+#include "include/protocols.h"
+#include "router_lib.h"
 #include <optional>
 #include <cstdint>
 
