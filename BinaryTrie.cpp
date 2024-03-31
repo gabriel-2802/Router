@@ -1,5 +1,5 @@
 #include "BinaryTrie.h"
-#include "router_lib.h"
+#include "lib_router.h"
 #include <arpa/inet.h>
 
 using namespace std;

@@ -3,7 +3,7 @@
 #include "include/protocols.h"
 #include "BinaryTrie.h"
 #include "Node.h"
-#include "router_lib.h"
+#include "lib_router.h"
 
 
 #include <iostream>
@@ -71,7 +71,6 @@ class Router {
 			route_table_entry *entries = new route_table_entry[MAX_RTABLE_SIZE];
 			int len = read_rtable(file_name, entries);
 
-			int valid = 0;
 			for (int i = 0; i < len; ++i) {
 				route_table_entry *entry = entries + i;
 				if ((entry->prefix & entry->mask )== entry->prefix) {
@@ -251,6 +250,7 @@ class Router {
 			ether_header *eth_hdr = (ether_header *) packet.buff;
 			memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, 6);
 			get_interface_mac(packet.interface, eth_hdr->ether_shost);
+			eth_hdr->ether_type = htons(ETH_ARP);
 
 			// since we have the mac address of the sender, we can
 			// add it to the arp cache
@@ -333,7 +333,7 @@ class Router {
 
 
 		void send_packet(Packet packet) {
-			int sent = 0;
+			size_t sent = 0;
 
 			while (sent < packet.len) {
 				int ret = send_to_link(packet.interface, packet.buff + sent, packet.len - sent);

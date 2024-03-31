@@ -7,8 +7,8 @@
 
 class Node {
 public:
-    bool isLeaf; // true if the node is a leaf, therefore a valid ip address
     route_table_entry entry;
+    bool isLeaf; // true if the node is a leaf, therefore a valid ip address
     Node *left, *right; // left is 0, right is 1
 
     Node(); 

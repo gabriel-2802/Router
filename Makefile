@@ -7,8 +7,8 @@ LDFLAGS=
 CFLAGS=-c -Wall -Werror -Wno-error=unused-variable
 CC=g++
 
-# Automatic generation of some important lists
-OBJECTS=$(SOURCES:.c=.o)
+OBJECTS=$(SOURCES:.cpp=.o)
+OBJECTS:=$(OBJECTS:.c=.o)
 INCFLAGS=$(foreach TMP,$(INCPATHS),-I$(TMP))
 LIBFLAGS=$(foreach TMP,$(LIBPATHS),-L$(TMP))
 
@@ -20,11 +20,14 @@ all: $(SOURCES) $(BINARY)
 $(BINARY): $(OBJECTS)
 	$(CC) $(LIBFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
 
+.cpp.o:
+	$(CC) $(INCFLAGS) $(CFLAGS) -fPIC $< -o $@
+
 .c.o:
 	$(CC) $(INCFLAGS) $(CFLAGS) -fPIC $< -o $@
 
-# clean:
-# 	rm -rf $(OBJECTS) router hosts_output router_*
+clean:
+	rm -rf $(OBJECTS) $(BINARY)  hosts_output router_* router
 
 run_router0: all
 	./router rtable0.txt rr-0-1 r-0 r-1

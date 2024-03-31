@@ -1,5 +1,5 @@
-#ifndef ROUTER_LIB_H
-#define ROUTER_LIB_H
+#ifndef LIB_ROUTER_H
+#define LIB_ROUTER_H
 
 
 #include <unistd.h>
@@ -63,4 +63,4 @@ class Packet{
 		}
 };
 
-#endif // ROUTER_LIB_H
+#endif // LIB_ROUTER_H
