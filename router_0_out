@@ -96,8 +96,6 @@ Received IP packet
 Packet is for another host
 Forwarding packet to 3221225730 on interface:0
 handle_packet
-handle_packet
-handle_packet
 Received IP packet
 Packet is for this router
  Sending ICMP Echo Reply
@@ -106,14 +104,14 @@ Received IP packet
 Packet is for another host
 TTL expired
 Sending ICMP Time Exceeded
-Preparing ICMP header
+Preparing ICMP error header
 Forwarding packet to 3232235522 on interface:1
 handle_packet
 Received IP packet
 Packet is for another host
 No route found
 Sending ICMP Destination Unreachable
-Preparing ICMP header
+Preparing ICMP error header
 Forwarding packet to 3232235522 on interface:1
 handle_packet
 Received IP packet

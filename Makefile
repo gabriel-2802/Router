@@ -23,8 +23,8 @@ $(BINARY): $(OBJECTS)
 .c.o:
 	$(CC) $(INCFLAGS) $(CFLAGS) -fPIC $< -o $@
 
-clean:
-	rm -rf $(OBJECTS) router hosts_output router_*
+# clean:
+# 	rm -rf $(OBJECTS) router hosts_output router_*
 
 run_router0: all
 	./router rtable0.txt rr-0-1 r-0 r-1

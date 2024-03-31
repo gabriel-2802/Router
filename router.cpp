@@ -215,7 +215,27 @@ class Router {
 
 
 		void prepare_icmp_header(Packet& packet, uint8_t type) {
-			cout<<"Preparing ICMP header\n";
+			cout<<"Preparing ICMP error header\n";
+
+			iphdr *ip_hdr = (iphdr *)(packet.buff + sizeof(ether_header));
+			icmphdr *icmp_hdr = (icmphdr *)(packet.buff + sizeof(ether_header) + sizeof(iphdr));
+			packet.len = sizeof(ether_header) + 4 * ip_hdr->ihl + ICMP_PAYLOAD_SIZE;
+
+			// the payload of the icmp packet is the first 64 bits of the ip packet
+			char icmp_payload[ICMP_PAYLOAD_SIZE];
+			memcpy(icmp_payload, ip_hdr, ICMP_PAYLOAD_SIZE); 
+
+			icmp_hdr->type = type;
+			icmp_hdr->code = 0;
+			memcpy(packet.buff + sizeof(ether_header) + sizeof(iphdr) + sizeof(icmphdr), icmp_payload, ICMP_PAYLOAD_SIZE);
+			icmp_hdr->checksum = 0;
+			icmp_hdr->checksum = htons(checksum((uint16_t *) icmp_hdr, sizeof(icmphdr)) + ICMP_PAYLOAD_SIZE);
+
+			// ip header update since we send it back, not forward it
+			swap(ip_hdr->saddr, ip_hdr->daddr);
+			ip_hdr->ttl = DEFAULT_TTL;
+			ip_hdr->tot_len = htons(sizeof(iphdr) + sizeof(icmphdr) + ICMP_PAYLOAD_SIZE);
+			ip_hdr->protocol = IP_ICMP;
 		}
 
 		// void send_arp_reply(arp_header *request, int interface) {
@@ -323,18 +343,27 @@ class Router {
 		// }
 
 		void send_icmp_echo_reply(Packet packet) {
+
+			// update the ethernet header by swapping the source and destination mac addresses
 			ether_header *eth_hdr = (ether_header *) packet.buff;
 			swap(eth_hdr->ether_dhost, eth_hdr->ether_shost);
-
+			
+			// update the ip header by swapping the source and destination ip addresses
 			iphdr *ip_hdr = (iphdr *)(packet.buff + sizeof(ether_header));
+			if (!crc(ip_hdr)) {
+				cout<<"Invalid ip checksum\nPacket dropped\n";	
+				return;
+			}
 			swap(ip_hdr->saddr, ip_hdr->daddr);
 			ip_hdr->ttl = DEFAULT_TTL;
 			ip_hdr->check = 0;
 			ip_hdr->check = htons(checksum((uint16_t *) ip_hdr, sizeof(iphdr)));
 
+
+			// build the icmp header
 			icmphdr *icmp_hdr = (icmphdr *)(packet.buff + sizeof(ether_header) + sizeof(iphdr));
 			if (!crc(icmp_hdr)) {
-				cout<<"Invalid checksum\nPacket dropped\nICMP drop";	
+				cout<<"Invalid icmp checksum\nPacket dropped\nICMP drop";	
 				return;
 			}
 
