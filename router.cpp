@@ -38,20 +38,10 @@ class Router {
 		Router(char *file_name) {
 			routing_table = new BinaryTrie();
 			build_routes(file_name);
+		}
 
-			// // static mac table
-			// arp_table_entry *arp_table = new arp_table_entry[6];
-			// parse_arp_table("arp_table.txt", arp_table);
-
-			// for (int i = 0; i < 6; ++i) {
-			// 	arp_table_entry *entry = arp_table + i;
-			// 	uint8_t *mac = new uint8_t[6];
-
-			// 	mac_addr_t mac_addr;
-			// 	copy(entry->mac, entry->mac + 6, mac_addr.begin());
-
-			// 	arp_cache[entry->ip] = mac_addr;
-			// }
+		~Router() {
+			delete routing_table;
 		}
 
 		void run() {
@@ -76,6 +66,21 @@ class Router {
 				if ((entry->prefix & entry->mask )== entry->prefix) {
 					routing_table->insert(*entry);
 				}
+			}
+		}
+
+
+		// used initially to build the arp cache from a static file, not used in the final implementation
+		void build_static_arp_table(char *file_name, size_t len) {
+			arp_table_entry arp_table[len];
+			parse_arp_table(file_name, arp_table);
+
+			for (int i = 0; i < 6; ++i) {
+				arp_table_entry entry = arp_table[i];
+				mac_addr_t mac_addr;
+				memcpy(mac_addr.begin(), entry.mac, 6);
+
+				arp_cache[entry.ip] = mac_addr;
 			}
 		}
 
@@ -381,13 +386,11 @@ class Router {
 
 int main(int argc, char *argv[])
 {
-	Router router(argv[1]);
-	cout << "Router started\n";
+	Router *router = new Router(argv[1]);
 
-	// Do not modify this line
 	init(argc - 2, argv + 2);
-
-	router.run();
+	router->run();
+	delete router;
 }
 
 
