@@ -67,6 +67,8 @@ class Router {
 					routing_table->insert(*entry);
 				}
 			}
+
+			delete[] entries;
 		}
 
 
