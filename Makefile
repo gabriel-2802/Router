@@ -1,5 +1,5 @@
 PROJECT=router
-SOURCES=router.cpp  lib/lib.c
+SOURCES=router.cpp BinaryTrie.cpp Node.cpp lib/lib.c
 LIBRARY=nope
 INCPATHS=include
 LIBPATHS=.

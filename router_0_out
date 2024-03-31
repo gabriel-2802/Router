@@ -7,9 +7,7 @@ Received IP packet
 Packet is for another host
 Forwarding packet to 3232235778on interface:2
 Received packet on interface 2
-to be done
 Received packet on interface 2
-to be done
 Received packet on interface 2
 Received IP packet
 Packet is for another host
@@ -46,10 +44,6 @@ Received packet on interface 2
 Received IP packet
 Packet is for another host
 Forwarding packet to 3232235522on interface:1
-Received packet on interface 2
-to be done
-Received packet on interface 2
-to be done
 Received packet on interface 1
 Received IP packet
 Invalid checksum
@@ -67,9 +61,7 @@ Received IP packet
 Packet is for another host
 Forwarding packet to 3232235522on interface:1
 Received packet on interface 1
-to be done
 Received packet on interface 1
-to be done
 Received packet on interface 1
 Received IP packet
 Packet is for another host
@@ -91,9 +83,7 @@ Received IP packet
 Packet is for another host
 Forwarding packet to 3221225730on interface:0
 Received packet on interface 2
-to be done
 Received packet on interface 2
-to be done
 Received packet on interface 0
 Received IP packet
 Packet is for another host
@@ -102,6 +92,8 @@ Received packet on interface 2
 Received IP packet
 Packet is for another host
 Forwarding packet to 3221225730on interface:0
+Received packet on interface 2
+Received packet on interface 2
 Received packet on interface 1
 Received IP packet
 Sent ICMP Echo Reply
@@ -109,17 +101,15 @@ Received packet on interface 1
 Received IP packet
 TTL expired
 Sending ICMP Time Exceeded
-Invalid checksum
-Packet dropped
-ICMP dropSent ICMP Destination Unreachable or ttl exceeded
+Sending ICMP packet failure 
+Sent ICMP Destination Unreachable or ttl exceeded
 Received packet on interface 1
 Received IP packet
 Packet is for another host
 No route found
 Sending ICMP Destination Unreachable
-Invalid checksum
-Packet dropped
-ICMP dropSent ICMP Destination Unreachable or ttl exceeded
+Sending ICMP packet failure 
+Sent ICMP Destination Unreachable or ttl exceeded
 Received packet on interface 1
 Received IP packet
 Packet is for another host
@@ -197,6 +187,88 @@ Received IP packet
 Packet is for another host
 Forwarding packet to 3232235778on interface:2
 Received packet on interface 2
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 2
+Received packet on interface 2
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
+Received IP packet
+Packet is for another host
+Forwarding packet to 3232235522on interface:1
+Received packet on interface 1
+Received IP packet
+Packet is for another host
+Forwarding packet to 3221225730on interface:0
+Received packet on interface 0
 Received IP packet
 Packet is for another host
 Forwarding packet to 3232235522on interface:1

@@ -10,24 +10,6 @@
 #define MAX_PACKET_LEN 1600
 #define ROUTER_NUM_INTERFACES 3
 
-
-#define MAX_RTABLE_SIZE 200'000'000
-#define TTL 64
-
-// used for eth deaer type
-#define ETH_IPV4 0x0800
-#define ETH_ARP 0x0806
-
-
-#define IP_ICMP 1
-#define MAC_BROADCAST {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-
-
-typedef uint32_t ip_addr_t;
-
-
-
-
 /*
  * @brief Sends a packet on a specific interface.
  *
