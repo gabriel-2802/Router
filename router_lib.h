@@ -57,7 +57,7 @@ class Packet{
 		}
 
 
-		void add_dest_mac(mac_addr_t mac) {
+		void add_dest_mac_to_packet(mac_addr_t mac) {
 			ether_header *eth_hdr = (ether_header *) buff;
 			memcpy(eth_hdr->ether_dhost, mac.begin(), 6);
 		}
